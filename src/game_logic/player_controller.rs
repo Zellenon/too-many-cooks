@@ -34,7 +34,7 @@ fn add_test_player(
             },
             collider: Collider::ball(40.0),
             ship: Ship {
-                accel: 200.0,
+                engine_force: 200.0,
                 max_vel: 300.0,
             },
             ..default()
@@ -58,7 +58,7 @@ pub struct Player;
 /// marker to specify that an entity is a ship
 #[derive(Component)]
 pub struct Ship {
-    accel: f32,
+    engine_force: f32,
     max_vel: f32,
 }
 
@@ -79,7 +79,7 @@ impl Default for PlayerShipBundle {
         Self {
             player: Player,
             ship: Ship {
-                accel: 100.0,
+                engine_force: 100.0,
                 max_vel: 100.0,
             },
             sprite_bundle: SpriteBundle::default(),
@@ -110,7 +110,7 @@ fn player_acceleration(
 ) {
     for (mut external_force, transform, ship) in player_info.iter_mut() {
         let (y, x) = transform.rotation.to_euler(EulerRot::ZYX).0.sin_cos();
-        let direction_vec = Vec2::new(x, y) * ship.accel;
+        let direction_vec = Vec2::new(x, y) * ship.engine_force;
     
         if keyboard_input.pressed(KeyCode::W) {
             external_force.force = direction_vec;
