@@ -8,7 +8,6 @@ pub const BACKGROUND_COLOR: Color = Color::hsl(200.,0.9, 0.04);
 
 //https://github.com/laundmo/bevy_screen_diagnostics
 use bevy_screen_diagnostics::{ScreenDiagnosticsPlugin, ScreenFrameDiagnosticsPlugin};
-use boids::CorePlugin;
 
 fn main() {
     let mut app = App::new();
@@ -22,7 +21,7 @@ fn main() {
 
     let window_plugin: WindowPlugin = WindowPlugin {
         primary_window: Some(Window {
-            title: "Boids".to_string(),
+            title: "too_many_cooks".to_string(),
             mode: WindowMode::Windowed,
             present_mode: PresentMode::AutoNoVsync,
             fit_canvas_to_parent: true,
@@ -53,8 +52,6 @@ fn main() {
             ScreenDiagnosticsPlugin::default(),
             ScreenFrameDiagnosticsPlugin
     ));
-
-    app.add_plugins(CorePlugin);
 
     app.run();
 }
