@@ -94,10 +94,7 @@ fn player_acceleration(
         let (y, x) = transform.rotation.to_euler(EulerRot::ZYX).0.sin_cos();
         let direction_vec = Vec2::new(x, y) * 100.0; // TODO: replace hardcoded value
     
-        info!("direction_vec: {:?}", direction_vec);
-        
         if keyboard_input.pressed(KeyCode::W) {
-            info!("W pressed");
             external_force.force = direction_vec;
         } else {
             external_force.force = Vec2::new(0.0, 0.0);
