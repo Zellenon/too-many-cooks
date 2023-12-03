@@ -13,6 +13,7 @@ impl Plugin for PlayerControllerPlugin {
             ))
             .add_systems(Update, (
                 point_player_at_mouse,
+                limit_ship_speed,
                 override_angular_velocity,
                 player_acceleration,
             ));
@@ -31,11 +32,22 @@ fn add_test_player(
                 transform: Transform::from_xyz(0.0, 0.0, 0.0),
                 ..default()
             },
-            // size of ship collider
             collider: Collider::ball(40.0),
+            ship: Ship {
+                accel: 200.0,
+                max_vel: 300.0,
+            },
             ..default()
         },
         Name::new("PlayerEntity".to_string()),
+    ));
+    
+    // test obstacle
+    commands.spawn((
+        Transform::from_xyz(200.0, 0.0, 0.0),
+        RigidBody::Dynamic,
+        Collider::cuboid(100.0, 400.0),
+        GravityScale(0.0),
     ));
 }
 
@@ -45,7 +57,10 @@ pub struct Player;
 
 /// marker to specify that an entity is a ship
 #[derive(Component)]
-pub struct Ship;
+pub struct Ship {
+    accel: f32,
+    max_vel: f32,
+}
 
 /// Ship bundle
 #[derive(Bundle)]
@@ -63,7 +78,10 @@ impl Default for PlayerShipBundle {
     fn default() -> Self {
         Self {
             player: Player,
-            ship: Ship,
+            ship: Ship {
+                accel: 100.0,
+                max_vel: 100.0,
+            },
             sprite_bundle: SpriteBundle::default(),
             rigidbody: RigidBody::Dynamic,
             collider: Collider::ball(1.0),
@@ -87,12 +105,12 @@ fn override_angular_velocity(
 
 /// Player ship acceleration
 fn player_acceleration(
-    mut player_info: Query<(&mut ExternalForce, &Transform), (With<Player>, With<Ship>)>,
+    mut player_info: Query<(&mut ExternalForce, &Transform, &Ship), With<Player>>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
-    for (mut external_force, transform) in player_info.iter_mut() {
+    for (mut external_force, transform, ship) in player_info.iter_mut() {
         let (y, x) = transform.rotation.to_euler(EulerRot::ZYX).0.sin_cos();
-        let direction_vec = Vec2::new(x, y) * 100.0; // TODO: replace hardcoded value
+        let direction_vec = Vec2::new(x, y) * ship.accel;
     
         if keyboard_input.pressed(KeyCode::W) {
             external_force.force = direction_vec;
@@ -102,7 +120,18 @@ fn player_acceleration(
     }
 }
 
-/// Self explainatory
+/// limit ship speed
+fn limit_ship_speed(
+    mut player_info: Query<(&mut Velocity, &Ship)>
+) {
+    for (mut velocity, ship) in player_info.iter_mut() {
+        let speed = velocity.linvel.length();
+        if speed > ship.max_vel {
+            velocity.linvel = velocity.linvel.normalize() * ship.max_vel;
+        }
+    }
+}
+
 fn point_player_at_mouse (
     mut player_info: Query<&mut Transform, With<Player>>,
     windows: Query<&Window, With<PrimaryWindow>>,
