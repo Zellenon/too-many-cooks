@@ -1,4 +1,5 @@
 pub mod core;
+pub mod game_logic;
 
 use bevy::{
     prelude::*,
@@ -58,7 +59,7 @@ fn upd_lifetimes(
 }
 
 fn setup_camera(mut commands: Commands) {
-    let mut trans: Transform = Transform::from_scale(Vec3::new(0.6, 0.6, 1.)); //0.5
+    let mut trans: Transform = Transform::from_xyz(0.0, 0.0, 0.0);
     trans.translation = Vec3::new(0.,0.0,999.9);
 
     let mut proj: OrthographicProjection = OrthographicProjection::default();

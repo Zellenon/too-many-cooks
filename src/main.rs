@@ -1,13 +1,15 @@
+use bevy::render::render_resource::AsBindGroup;
 use bevy::{prelude::*, window::PresentMode};
 use bevy::window::{WindowResolution, WindowMode};
-//use bevy::utils::Duration;
 
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-
-pub const BACKGROUND_COLOR: Color = Color::hsl(200.,0.9, 0.04);
-
 //https://github.com/laundmo/bevy_screen_diagnostics
 use bevy_screen_diagnostics::{ScreenDiagnosticsPlugin, ScreenFrameDiagnosticsPlugin};
+use too_many_cooks::game_logic;
+use bevy_rapier2d::prelude::*;
+use too_many_cooks::CorePlugin;
+
+pub const BACKGROUND_COLOR: Color = Color::hsl(200.,0.9, 0.04);
 
 fn main() {
     let mut app = App::new();
@@ -45,13 +47,24 @@ fn main() {
                 .build(),
         );
     
+    // core plugin
+    app.add_plugins(CorePlugin);
+    
     //external crates
     app
         .add_plugins((
             WorldInspectorPlugin::new(),
             ScreenDiagnosticsPlugin::default(),
-            ScreenFrameDiagnosticsPlugin
+            ScreenFrameDiagnosticsPlugin,
+            RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0),
+            RapierDebugRenderPlugin::default(),
     ));
+    
+    // game logic
+    app
+        .add_plugins((
+            game_logic::player_controller::PlayerControllerPlugin,
+        ));
 
     app.run();
 }
