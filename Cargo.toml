@@ -12,6 +12,7 @@ bevy-inspector-egui = { version = "0.21" }
 bevy_vector_shapes = "0.6"
 #https://github.com/laundmo/bevy_screen_diagnostics
 bevy_screen_diagnostics = { version = "0.4" }
+bevy_asset_loader = "0.18"
 
 rand = "0.8.5"
 
