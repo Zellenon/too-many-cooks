@@ -8,6 +8,7 @@ use bevy_screen_diagnostics::{ScreenDiagnosticsPlugin, ScreenFrameDiagnosticsPlu
 use too_many_cooks::game_logic;
 use bevy_rapier2d::prelude::*;
 use too_many_cooks::CorePlugin;
+use crate::game_logic::ship_engine::RayCastPlugin;
 
 pub const BACKGROUND_COLOR: Color = Color::hsl(200.,0.9, 0.04);
 
@@ -49,6 +50,8 @@ fn main() {
     
     // core plugin
     app.add_plugins(CorePlugin);
+    
+    app.add_plugins(RayCastPlugin);
     
     //external crates
     app

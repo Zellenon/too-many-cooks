@@ -1,7 +1,9 @@
 use bevy::prelude::*;
+use bevy::sprite::SPRITE_SHADER_HANDLE;
 use bevy_rapier2d::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::core::Name;
+use crate::game_logic::ship_engine::{RayCast, RayCastEvent};
 
 pub struct PlayerControllerPlugin;
 
@@ -16,6 +18,8 @@ impl Plugin for PlayerControllerPlugin {
                 limit_ship_speed,
                 override_angular_velocity,
                 player_acceleration,
+                engine_push,
+                loop_on_edge,
             ));
     }
 }
@@ -40,7 +44,22 @@ fn add_test_player(
             ..default()
         },
         Name::new("PlayerEntity".to_string()),
-    ));
+    )).with_children(|parent| {
+        let num_raycasts = 5;
+        let spread_angle: f32 = 5.0;
+        for i in 0..num_raycasts {
+            parent.spawn((
+                RayCast {
+                    max_distance: 100.0,
+                    angle: (i as f32 - (num_raycasts as f32 / 2.0)) * spread_angle.to_radians(),
+                },
+                TransformBundle {
+                    local: Transform::from_xyz(40.001, 0.0, 0.0),
+                    ..default()
+                },
+            ));
+        }
+    });
     
     // test obstacle
     commands.spawn((
@@ -48,6 +67,7 @@ fn add_test_player(
         RigidBody::Dynamic,
         Collider::cuboid(100.0, 400.0),
         GravityScale(0.0),
+        ExternalForce::default(),
     ));
 }
 
@@ -92,6 +112,52 @@ impl Default for PlayerShipBundle {
 }
 
 /// Systems ///
+
+fn engine_push (
+    mut raycast_events: EventReader<RayCastEvent>,
+    // get all external forces
+    mut external_forces: Query<(&mut ExternalForce, &Transform)>,
+    // time: Res<Time>,
+) {
+    // push every object hit by the raycasts according to where they were hit
+    for raycast_event in raycast_events.read() {
+        if let Ok((mut force, transform)) = external_forces.get_mut(raycast_event.entity) {
+            // set force and torque according to intersection point, and direction the ray originated from
+            let radius_vec = raycast_event.intersection_point - transform.translation.truncate();
+            // let torque = radius_vec.length() * raycast_event.direction.length() * (radius_vec.angle_between(raycast_event.direction)).sin();
+            let force_vec = -raycast_event.intersection_normal * 0.5;
+            
+            force.force += force_vec;
+            // hold off on torque for now
+            // force.torque += torque;
+        }
+    }
+}
+
+/// loops all transforms on edge
+fn loop_on_edge(
+    mut transforms: Query<(&mut Transform)>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+) {
+    // assuming that there is exactly one window
+    let window = windows.single();
+    let window_width = window.physical_width() as f32;
+    let window_height = window.physical_height() as f32;
+
+    for mut transform in transforms.iter_mut() {
+        if transform.translation.x > window_width / 2.0 {
+            transform.translation.x = -window_width / 2.0;
+        } else if transform.translation.x < -window_width / 2.0 {
+            transform.translation.x = window_width / 2.0;
+        }
+        
+        if transform.translation.y > window_height / 2.0 {
+            transform.translation.y = -window_height / 2.0;
+        } else if transform.translation.y < -window_height / 2.0 {
+            transform.translation.y = window_height / 2.0;
+        }
+    }
+}
 
 /// Stops rapier from controlling the angular velocity of the player.
 /// Gives full control to the player controller.
