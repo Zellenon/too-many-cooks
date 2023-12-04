@@ -1,5 +1,7 @@
+use appstate::AppStatePlugin;
+use assets::AssetsPlugin;
 use bevy::{
-    prelude::{App, AssetMode, AssetPlugin, ClearColor, Color, ImagePlugin, PluginGroup},
+    prelude::{App, ClearColor, Color, ImagePlugin, PluginGroup},
     DefaultPlugins,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -7,28 +9,22 @@ use bevy_screen_diagnostics::{ScreenDiagnosticsPlugin, ScreenFrameDiagnosticsPlu
 use bevy_stats::StatPlugin;
 use bevy_twin_stick::TwinStickPlugin;
 
-pub mod gamestate;
+pub mod appstate;
+pub mod assets;
+pub mod characters;
+pub mod level;
 
 pub const BACKGROUND_COLOR: Color = Color::hsl(200., 0.9, 0.04);
 
 fn main() {
     let mut app = App::new();
 
-    let asset_plugin = AssetPlugin {
-        file_path: String::new(),
-        processed_file_path: String::new(),
-        watch_for_changes_override: Some(true),
-        mode: AssetMode::Processed,
-    };
-
     //default bevy plugins
     app.insert_resource(ClearColor(BACKGROUND_COLOR))
-        .add_plugins(
-            DefaultPlugins
-                .set(ImagePlugin::default_nearest())
-                .set(asset_plugin)
-                .build(),
-        );
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()).build());
+
+    // internal top-level crates
+    app.add_plugins((AppStatePlugin, AssetsPlugin));
 
     //external crates
     app.add_plugins((
