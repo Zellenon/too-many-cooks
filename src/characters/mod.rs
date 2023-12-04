@@ -9,6 +9,7 @@ use crate::assets::add_texture;
 
 pub mod mooks;
 pub mod player;
+pub mod stats;
 
 pub fn world_actor(name: &'static str, speed: f32, tex: &Handle<Image>) -> ComponentTree {
     CT!(Name::new(name), ActorBundle::default(), Speed(speed)) + add_texture(tex)
