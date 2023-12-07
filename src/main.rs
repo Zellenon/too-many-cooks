@@ -8,7 +8,7 @@ use bevy_screen_diagnostics::{ScreenDiagnosticsPlugin, ScreenFrameDiagnosticsPlu
 use too_many_cooks::game_logic;
 use bevy_rapier2d::prelude::*;
 use too_many_cooks::CorePlugin;
-use crate::game_logic::ship_engine::RayCastPlugin;
+use crate::game_logic::raycast::RayCastPlugin;
 
 pub const BACKGROUND_COLOR: Color = Color::hsl(200.,0.9, 0.04);
 

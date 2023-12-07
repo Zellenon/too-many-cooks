@@ -1,9 +1,8 @@
 use bevy::prelude::*;
-use bevy::sprite::SPRITE_SHADER_HANDLE;
 use bevy_rapier2d::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::core::Name;
-use crate::game_logic::ship_engine::{RayCast, RayCastEvent};
+use crate::game_logic::raycast::{RayCast, RayCastEvent};
 
 pub struct PlayerControllerPlugin;
 
@@ -13,18 +12,21 @@ impl Plugin for PlayerControllerPlugin {
             .add_systems(Startup, (
                 add_test_player,
             ))
+            .add_systems(PreUpdate, (
+                zero_out_external_forces,
+            ))
             .add_systems(Update, (
                 point_player_at_mouse,
                 limit_ship_speed,
-                override_angular_velocity,
+                zero_out_angular_velocity,
                 player_acceleration,
-                engine_push,
+                // raycast_push_object,
                 loop_on_edge,
+                raycast_push_ship,
             ));
     }
 }
 
-// TODO: remove when done testing player controller
 fn add_test_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -32,7 +34,7 @@ fn add_test_player(
     commands.spawn((
         PlayerShipBundle {
             sprite_bundle: SpriteBundle {
-                texture: asset_server.load("assets/sprites/ship.png"),
+                texture: asset_server.load("assets/sprites/ship_transparent.png"),
                 transform: Transform::from_xyz(0.0, 0.0, 0.0),
                 ..default()
             },
@@ -46,15 +48,15 @@ fn add_test_player(
         Name::new("PlayerEntity".to_string()),
     )).with_children(|parent| {
         let num_raycasts = 5;
-        let spread_angle: f32 = 5.0;
+        let spread_angle: f32 = 5.0f32.to_radians();
         for i in 0..num_raycasts {
             parent.spawn((
                 RayCast {
-                    max_distance: 100.0,
-                    angle: (i as f32 - (num_raycasts as f32 / 2.0)) * spread_angle.to_radians(),
+                    max_distance: 500.0,
+                    angle: std::f32::consts::PI + spread_angle * (i as f32 - (num_raycasts as f32 - 1.0) / 2.0),
                 },
                 TransformBundle {
-                    local: Transform::from_xyz(40.001, 0.0, 0.0),
+                    local: Transform::from_xyz(-40.001, 0.0, 0.0),
                     ..default()
                 },
             ));
@@ -62,13 +64,40 @@ fn add_test_player(
     });
     
     // test obstacle
-    commands.spawn((
-        Transform::from_xyz(200.0, 0.0, 0.0),
-        RigidBody::Dynamic,
-        Collider::cuboid(100.0, 400.0),
-        GravityScale(0.0),
-        ExternalForce::default(),
-    ));
+    // commands.spawn((
+    //     Transform::from_xyz(200.0, 0.0, 0.0),
+    //     RigidBody::Dynamic,
+    //     Collider::cuboid(100.0, 400.0),
+    //     GravityScale(0.0),
+    //     ExternalForce::default(),
+    // ));
+
+    // create an bunch of obstacles in one big arc
+    for i in 0..20 {
+        let angle = i as f32 * 2.0 * std::f32::consts::PI / 20.0;
+        let x = angle.cos() * 400.0;
+        let y = angle.sin() * 400.0;
+        commands.spawn((
+            TransformBundle {
+                local: Transform {
+                    translation: Vec3::new(x, y, 0.0),
+                    rotation: Quat::from_rotation_z(angle),
+                    ..default()
+                },
+                ..default()
+            },
+            RigidBody::Fixed,
+            Collider::cuboid(10.0, 400.0),
+            GravityScale(0.0),
+            ExternalForce::default(),
+        ));
+    }
+    // commands.spawn((
+    //     TransformBundle::from(Transform::from_xyz(0.0, -400.0, 0.0)),
+    //     RigidBody::Fixed,
+    //     Collider::cuboid(1000.0, 10.0),
+    //     GravityScale(0.0),
+    // ));
 }
 
 /// marker to specify that an entity is a player controller
@@ -113,30 +142,57 @@ impl Default for PlayerShipBundle {
 
 /// Systems ///
 
-fn engine_push (
+fn zero_out_external_forces(
+    mut external_forces: Query<&mut ExternalForce>,
+) {
+    for mut force in external_forces.iter_mut() {
+        force.force = Vec2::new(0.0, 0.0);
+        force.torque = 0.0;
+    }
+}
+
+fn raycast_push_object (
     mut raycast_events: EventReader<RayCastEvent>,
-    // get all external forces
     mut external_forces: Query<(&mut ExternalForce, &Transform)>,
-    // time: Res<Time>,
 ) {
     // push every object hit by the raycasts according to where they were hit
     for raycast_event in raycast_events.read() {
-        if let Ok((mut force, transform)) = external_forces.get_mut(raycast_event.entity) {
+        if let Ok((mut force, transform)) = external_forces.get_mut(raycast_event.collision_entity) {
             // set force and torque according to intersection point, and direction the ray originated from
             let radius_vec = raycast_event.intersection_point - transform.translation.truncate();
-            // let torque = radius_vec.length() * raycast_event.direction.length() * (radius_vec.angle_between(raycast_event.direction)).sin();
-            let force_vec = -raycast_event.intersection_normal * 0.5;
+            let torque = -radius_vec.length() * raycast_event.direction.length() * (radius_vec.angle_between(-raycast_event.direction)).sin();
+            let force_vec = -raycast_event.intersection_normal;
             
             force.force += force_vec;
             // hold off on torque for now
-            // force.torque += torque;
+            force.torque += torque;
         }
     }
 }
 
+fn raycast_push_ship (
+    mut raycast_events: EventReader<RayCastEvent>,
+    parent: Query<&Parent>,
+    mut external_force: Query<&mut ExternalForce>,
+) {
+    for raycast_event in raycast_events.read() {
+        if let Ok(parent) = parent.get(raycast_event.raycast_entity) {
+            // compute strength of force based on distance from center of ship
+            let radius_vec = raycast_event.intersection_point - raycast_event.origin;
+            let force_strength = 1000.0/(radius_vec.length() + 1.0);
+            
+            if let Ok(mut force) = external_force.get_mut(parent.get()) {
+                force.force += -radius_vec.normalize() * force_strength;
+            }
+        }
+    }
+}
+
+
+
 /// loops all transforms on edge
 fn loop_on_edge(
-    mut transforms: Query<(&mut Transform)>,
+    mut transforms: Query<&mut Transform>,
     windows: Query<&Window, With<PrimaryWindow>>,
 ) {
     // assuming that there is exactly one window
@@ -161,7 +217,7 @@ fn loop_on_edge(
 
 /// Stops rapier from controlling the angular velocity of the player.
 /// Gives full control to the player controller.
-fn override_angular_velocity(
+fn zero_out_angular_velocity(
     mut player_info: Query<&mut Velocity, (With<Player>, With<Ship>)>,
 ) {
     for mut velocity in player_info.iter_mut() {
@@ -179,9 +235,9 @@ fn player_acceleration(
         let direction_vec = Vec2::new(x, y) * ship.engine_force;
     
         if keyboard_input.pressed(KeyCode::W) {
-            external_force.force = direction_vec;
+            external_force.force += direction_vec;
         } else {
-            external_force.force = Vec2::new(0.0, 0.0);
+            external_force.force += Vec2::new(0.0, 0.0);
         }
     }
 }

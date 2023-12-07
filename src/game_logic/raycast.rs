@@ -28,7 +28,8 @@ impl RayCast {
 
 #[derive(Event, Debug)]
 pub struct RayCastEvent {
-    pub entity: Entity,
+    pub raycast_entity: Entity,
+    pub collision_entity: Entity,
     pub intersection_point: Vec2,
     pub intersection_normal: Vec2,
     pub distance: f32,
@@ -37,11 +38,11 @@ pub struct RayCastEvent {
 }
 
 fn ray_cast_system (
-    raycast_info: Query<(&GlobalTransform, &RayCast)>,
+    raycast_info: Query<(Entity, &GlobalTransform, &RayCast)>,
     rapier_context: Res<RapierContext>,
     mut raycast_events: EventWriter<RayCastEvent>,
 ) {
-    for (global_transform, raycast) in raycast_info.iter().map(|(x, y)| (x.compute_transform(), y)) {
+    for (entity_id, global_transform, raycast) in raycast_info.iter().map(|(z, x, y)| (z, x.compute_transform(), y)) {
         let ray_pos = global_transform.translation.truncate();
         let ray_angle = global_transform.rotation.to_euler(EulerRot::ZYX).0 + raycast.angle;
         let ray_dir = Vec2::new(ray_angle.cos(), ray_angle.sin());
@@ -53,14 +54,16 @@ fn ray_cast_system (
         rapier_context.intersections_with_ray(
             ray_pos, ray_dir, max_toi, solid, filter,
             |entity, intersection| {
-                raycast_events.send(RayCastEvent {
-                    entity,
+                let event = RayCastEvent {
+                    raycast_entity: entity_id,
+                    collision_entity: entity,
                     intersection_point: intersection.point,
                     intersection_normal: intersection.normal,
                     distance: intersection.toi,
                     origin: ray_pos,
                     direction: ray_dir,
-                });
+                };
+                raycast_events.send(event);
                 true // Return `false` instead if we want to stop searching for other hits.
             });
     }
